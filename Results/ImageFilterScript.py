@@ -13,8 +13,8 @@ filelist = glob.glob("../Samples/*.jpg",recursive=True)
 print(path)
 print(filelist)
 
-height = 400
-width = 250
+height = 50
+width = 50
 murky_water  = "Murkywater.jpg"
 water_img = cv2.imread(murky_water, 1)
 water_img = cv2.resize(water_img, (height,width))
