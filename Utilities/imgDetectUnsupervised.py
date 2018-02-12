@@ -1,7 +1,15 @@
 import numpy as np
 import cv2
+import argparse
 
-img = cv2.imread('me.jpg')
+parser = argparse.ArgumentParser(description='Reduce the number of colors in an image with k-means clustering')
+
+parser.add_argument('k', type=int, help='Number of classes for k-means clustering')
+parser.add_argument('filename', metavar="path_to_file", help='File to be processed')
+					
+args = parser.parse_args()
+
+img = cv2.imread(args.filename)
 Z = img.reshape((-1,3))
 
 # convert to np.float32
