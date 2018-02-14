@@ -1,8 +1,7 @@
-#
-# File info 
-#
-#
-#
+# Pisces Project
+# Last modified: 2/14/18
+# Use: Requires Python 2.x 
+
 
 import numpy as np
 import cv2

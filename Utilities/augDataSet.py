@@ -1,3 +1,7 @@
+# Pisces Project
+# Last modified: 2/14/18
+# Use: Requires Python 3.x
+
 import argparse
 import Augmentor
 
