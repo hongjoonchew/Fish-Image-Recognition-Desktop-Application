@@ -20,4 +20,6 @@ pipe.skew(probability=0.5)
 
 pipe.flip_left_right(probability=1)
 
+pipe.histogram_equalisation(probability=1)
+
 pipe.sample(NUM_IMAGES)
