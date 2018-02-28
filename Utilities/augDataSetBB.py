@@ -3,6 +3,7 @@ import argparse
 import cv2
 import os
 import json
+from datetime import datetime
 
 parser = argparse.ArgumentParser(description="""Augments image data with the following transformations:\n
 crop random\n
@@ -16,7 +17,32 @@ greyscale\n""")
 
 def processImages(images, delta):
 	# apply transformations
-	pass
+	result = []
+	for key, value in images.items():
+		result.append(value)
+	return(result)
+
+def writeData(images, imageOutPath, annotationOutPath):
+	jsonOut = []
+	for key, value in images:
+		# generate file name
+		outFileName = key + '_' +  datetime.isoformat(timespec='microsecond')
+		# generate json entry for file
+		try:
+			jsonOut.append({"annotation":value[1], "class":"image", "filename":outFileName})
+		except IndexError:
+			print("Error accesing annotations for " + key)
+		# write image to output directory
+		try:
+			cv2.imwrite(imageOutPath + outFileName, images[0])
+		except IndexError:
+			print("Error accessing image data for " + key)
+	# construct json)
+	# parse as json with json.dumps()
+	annotationFile = open(annotationOutPath, "w")
+	# write to annotation file
+	annotationFile.write(json.dumps(jsonOut))
+
 
 parser.add_argument('n', type=int, help='Number of images to generate')
 parser.add_argument('input_path', type=str, help='Path to images')
@@ -59,9 +85,6 @@ for file in filepaths:
 	
 	images[file] = [img] 
 
-	annotation = open(args.annotation_path)
-	jsonAnnotation = json.load(annotation)
-
 # load bounding boxes with json encoding library
 annotation = open(args.annotation_path)
 jsonAnnotation = json.load(annotation)
@@ -74,7 +97,7 @@ for image in jsonAnnotation:
 	# load bounding boxes with json encoding library
  	# apply bounding boxes to images	
 
-result = processImages(images, delta)
-	
-#cv2.imwrite(outputFilename, result)
-# save bounding boxes in annotation files
+result = processImages(images, 0)
+
+
+# writeImages()
