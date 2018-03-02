@@ -1,4 +1,5 @@
-import imgaug
+import imgaug as ia
+from imgaug import augmenters as iaa
 import argparse
 import cv2
 import os
@@ -17,34 +18,60 @@ greyscale\n""")
 
 def processImages(images, delta):
 	# apply transformations
-	result = []
-	for key, value in images.items():
-		result.append(value)
-	return(result)
+	imgList = []
+	boundingBoxes = []
+	for imageName, data in images.items():
+		imgList.append(data[0])
+		boundingBoxes.append(data[1])
+	
+	image_aug = delta.augment_images(imgList)
+	bbs_aug = delta.augment_bounding_boxes(boundingBoxes)
+	
+	return image_aug, bbs_aug
 
-def writeData(images, imageOutPath, annotationOutPath):
+def writeData(augImages, augBBoxes, outputPath):
 	jsonOut = []
-	for key, value in images:
+	for index in range(len(augImages)):
 		# generate file name
-		outFileName = key + '_' +  datetime.isoformat(timespec='microsecond')
+		outFileName = "Image" + index + '_' +  datetime.utcnow().isoformat() + '.jpg'
 		# generate json entry for file
-		try:
-			jsonOut.append({"annotation":value[1], "class":"image", "filename":outFileName})
-		except IndexError:
-			print("Error accesing annotations for " + key)
+		annotations = []
+		for bb in augBoxes[index]:
+			annotations.append({"class":"rect", "height": bb.y2 - bb.y1, "width": bb.x2 - bb.x1, "x": bb.x1, "y": bb.y1 })
+		jsonOut.append({"annotations":annotations, "class":"image", "filename":outFileName})
 		# write image to output directory
+		imagePath = outputPath + "/" + outFileName
 		try:
-			cv2.imwrite(imageOutPath + outFileName, images[0])
+			cv2.imwrite(imagePath, augImages[index])
 		except IndexError:
-			print("Error accessing image data for " + key)
+			print("Error accessing image data for " + imagePath)
+		except KeyError:
+			print("Key error. Image not written")
+			print(imagePath)
 	# construct json)
 	# parse as json with json.dumps()
-	annotationFile = open(annotationOutPath, "w")
+	annotationFile = open(outputPath + '/annotations.json', "w")
 	# write to annotation file
 	annotationFile.write(json.dumps(jsonOut))
 
 
-parser.add_argument('n', type=int, help='Number of images to generate')
+def parseBoundingBoxes(annotations):
+	# input: annotation corresponding to a single bounding box
+	# output: BoundingBox object
+	boundingBoxes = []
+	for annotation in annotations:
+		xTopLeft = annotation["x"]
+		yTopLeft = annotation["y"]
+		xBottomRight = xTopLeft + annotation["width"]
+		yBottomLeft = yTopLeft + annotation["height"]
+
+		boundingBox = ia.BoundingBox(x1=xTopLeft,y1=yTopLeft,x2=xBottomRight, y2=yBottomLeft)
+		
+		boundingBoxes.append(boundingBox)
+
+	return(boundingBoxes)
+
+# parser.add_argument('n', type=int, help='Number of images to generate')
 parser.add_argument('input_path', type=str, help='Path to images')
 parser.add_argument('output_path', type=str, help='Path for output images')
 parser.add_argument('annotation_path', type=str, help='Path for annotation file')
@@ -55,7 +82,7 @@ directoryPrefix = './'
 
 filepaths = []
 
-outputFolderPath = directoryPrefix + args.output_path
+outputFolderPath =  args.output_path
 
 if os.path.isdir(args.input_path):
 	directoryPrefix = args.input_path + '/'
@@ -74,7 +101,7 @@ else:
 # define transformations to apply to images
 
 
-# Dictionary stores <image_name, [image, bounding_box]>
+# Dictionary stores {image_name, [image, bounding_box]}
 images = {}
 
 for file in filepaths:
@@ -82,7 +109,7 @@ for file in filepaths:
 	# possible solutions: store annotations separate from images
 	# Possible file structure: /images /annotations
 	img = cv2.imread(directoryPrefix + file)
-	
+	print(file)
 	images[file] = [img] 
 
 # load bounding boxes with json encoding library
@@ -91,13 +118,54 @@ jsonAnnotation = json.load(annotation)
 
 
 for image in jsonAnnotation:
-	filename = image["filename"]
-	images[filename.split('/')[2]].append(image["annotations"])		
+	# Filename format is ../1-50/Image00--.jpg
+	filename = image["filename"].split('/')[2]
+	
+	
+	boundingBoxes = parseBoundingBoxes(image["annotations"])
+	images[filename].append(boundingBoxes)		
 
 	# load bounding boxes with json encoding library
  	# apply bounding boxes to images	
 
-result = processImages(images, 0)
+ia.seed(1)
+
+seq = iaa.Sequential([
+	iaa.Fliplr(0.5), # horizontal flip
+	# Small gaussian blur with random sigma between 0 and 0.5
+	# But only about 50% of the images are blurred
+	iaa.Sometimes(0.5, 
+		iaa.GaussianBlur(sigma=(0, 0.5))
+	),
+	# Strengthen or weaken the contrast in each image.
+	iaa.ContrastNormalization((0.75, 1.5)),
+	# Add gaussian noise.
+	# For 50% of all images, we sample the noise once per pixel.
+	# For the other 50% of all images, we sample the noise per pixel AND
+	# channel. This can change the color (not only brightness) of the
+	# pixels.
+	iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5),
+	# Make some images brighter and some darker.
+	# In 20% of all cases, we sample the multiplier once per channel,
+	# which can end up changing the color of the images.
+	iaa.Multiply((0.8, 1.2), per_channel=0.2),
+	# Apply affine transformations to each image.
+	# Scale/zoom them, translate/move them, rotate them and shear them.
+	iaa.Affine(
+        	scale={"x": (0.8, 1.2), "y": (0.8, 1.2)},
+        	translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)},
+        	rotate=(-25, 25),
+    	)
+], random_order=True)
+
+# Make our sequence deterministic.
+# We can now apply it to the image and then to the BBs and it will
+# lead to the same augmentations.
+# IMPORTANT: Call this once PER BATCH, otherwise you will always get the
+# exactly same augmentations for every batch!
+seq_det = seq.to_deterministic()
+
+processImages(images, seq_det)
 
 
-# writeImages()
+augImages, augBBoxes = writeData(images, outputFolderPath)
