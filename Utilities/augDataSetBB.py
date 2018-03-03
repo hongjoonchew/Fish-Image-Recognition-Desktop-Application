@@ -123,7 +123,7 @@ jsonAnnotation = json.load(annotation)
 print("Loading annotation file...")
 for entry in jsonAnnotation:
 	# Filename format is ../1-50/Image00--.jpg
-	filename = entry["filename"].split('/')[2]
+	filename = entry["filename"].split('/')[-1]
 	
 	image = images[filename][0]
 	boundingBoxes = parseBoundingBoxes(entry["annotations"], image.shape)
