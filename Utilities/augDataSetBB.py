@@ -33,10 +33,11 @@ def writeData(augImages, augBBoxes, outputPath):
 	jsonOut = []
 	for index in range(len(augImages)):
 		# generate file name
-		outFileName = "Image" + index + '_' +  datetime.utcnow().isoformat() + '.jpg'
+		outFileName = "Image" + str(index) + '_' +  datetime.utcnow().isoformat() + '.jpg'
 		# generate json entry for file
 		annotations = []
-		for bb in augBoxes[index]:
+
+		for bb in augBBoxes[index].bounding_boxes:
 			annotations.append({"class":"rect", "height": bb.y2 - bb.y1, "width": bb.x2 - bb.x1, "x": bb.x1, "y": bb.y1 })
 		jsonOut.append({"annotations":annotations, "class":"image", "filename":outFileName})
 		# write image to output directory
@@ -52,10 +53,10 @@ def writeData(augImages, augBBoxes, outputPath):
 	# parse as json with json.dumps()
 	annotationFile = open(outputPath + '/annotations.json', "w")
 	# write to annotation file
-	annotationFile.write(json.dumps(jsonOut))
+	annotationFile.write(json.dumps(jsonOut, sort_keys=True, indent=4, separators=(',', ': ')))
 
 
-def parseBoundingBoxes(annotations):
+def parseBoundingBoxes(annotations, imageShape):
 	# input: annotation corresponding to a single bounding box
 	# output: BoundingBox object
 	boundingBoxes = []
@@ -68,8 +69,9 @@ def parseBoundingBoxes(annotations):
 		boundingBox = ia.BoundingBox(x1=xTopLeft,y1=yTopLeft,x2=xBottomRight, y2=yBottomLeft)
 		
 		boundingBoxes.append(boundingBox)
-
-	return(boundingBoxes)
+	
+	bbs = ia.BoundingBoxesOnImage(boundingBoxes, shape=imageShape)
+	return(bbs)
 
 # parser.add_argument('n', type=int, help='Number of images to generate')
 parser.add_argument('input_path', type=str, help='Path to images')
@@ -104,29 +106,33 @@ else:
 # Dictionary stores {image_name, [image, bounding_box]}
 images = {}
 
+print("Reading images..")
 for file in filepaths:
 	# bug: loads annotation file as well as images
 	# possible solutions: store annotations separate from images
 	# Possible file structure: /images /annotations
 	img = cv2.imread(directoryPrefix + file)
 	print(file)
-	images[file] = [img] 
+	images[file] = [img]
+print("Done.") 
 
 # load bounding boxes with json encoding library
 annotation = open(args.annotation_path)
 jsonAnnotation = json.load(annotation)
 
-
-for image in jsonAnnotation:
+print("Loading annotation file...")
+for entry in jsonAnnotation:
 	# Filename format is ../1-50/Image00--.jpg
-	filename = image["filename"].split('/')[2]
+	filename = entry["filename"].split('/')[2]
 	
-	
-	boundingBoxes = parseBoundingBoxes(image["annotations"])
+	image = images[filename][0]
+	boundingBoxes = parseBoundingBoxes(entry["annotations"], image.shape)
 	images[filename].append(boundingBoxes)		
 
 	# load bounding boxes with json encoding library
  	# apply bounding boxes to images	
+print("Done")
+
 
 ia.seed(1)
 
@@ -165,7 +171,7 @@ seq = iaa.Sequential([
 # exactly same augmentations for every batch!
 seq_det = seq.to_deterministic()
 
-processImages(images, seq_det)
+augImages, augBBoxes = processImages(images, seq_det)
 
 
-augImages, augBBoxes = writeData(images, outputFolderPath)
+writeData(augImages, augBBoxes, outputFolderPath)
