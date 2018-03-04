@@ -20,10 +20,11 @@ def processImages(images, delta):
 	# apply transformations
 	imgList = []
 	boundingBoxes = []
+	print("starting augmentation")
 	for imageName, data in images.items():
 		imgList.append(data[0])
 		boundingBoxes.append(data[1])
-	
+	print("done augmenting")
 	image_aug = delta.augment_images(imgList)
 	bbs_aug = delta.augment_bounding_boxes(boundingBoxes)
 	
@@ -100,8 +101,6 @@ if os.path.isdir(args.input_path):
 else:
 	filepaths = [ args.input_path ]
 
-# define transformations to apply to images
-
 
 # Dictionary stores {image_name, [image, bounding_box]}
 images = {}
@@ -136,6 +135,7 @@ print("Done")
 
 ia.seed(1)
 
+# defines transformations to apply to images
 seq = iaa.Sequential([
 	iaa.Fliplr(0.5), # horizontal flip
 	# Small gaussian blur with random sigma between 0 and 0.5
@@ -160,7 +160,7 @@ seq = iaa.Sequential([
 	iaa.Affine(
         	scale={"x": (0.8, 1.2), "y": (0.8, 1.2)},
         	translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)},
-        	rotate=(-25, 25),
+        	rotate=(-10, 10),
     	)
 ], random_order=True)
 
@@ -171,7 +171,10 @@ seq = iaa.Sequential([
 # exactly same augmentations for every batch!
 seq_det = seq.to_deterministic()
 
+print("Augmenting images...")
 augImages, augBBoxes = processImages(images, seq_det)
+print("Done.")
 
-
+print("Saving images...")
 writeData(augImages, augBBoxes, outputFolderPath)
+print("Done.")
