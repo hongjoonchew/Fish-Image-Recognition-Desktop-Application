@@ -16,6 +16,64 @@ contrast normalization\n
 greyscale\n""")
 
 
+def readData(input_path, output_path, annotation_path):
+	directoryPrefix = './'
+
+	filepaths = []
+
+	outputFolderPath =  output_path
+
+	if os.path.isdir(input_path):
+		directoryPrefix = input_path + '/'
+		# Recursively walks through the directory structure and creates two lists. One for directories
+		# and one for file names.
+		for (dirpath, dirnames, filenames) in os.walk(input_path):
+			filepaths.extend(filenames)
+			break 
+		
+		# Creates output folder if folder doesn't exist
+		if not os.path.exists(outputFolderPath):
+			os.mkdir(outputFolderPath)
+	else:
+		filepaths = [ input_path ]
+
+
+	# Dictionary stores {image_name, [image, bounding_box]}
+	images = {}
+
+	print("Reading images..")
+	for file in filepaths:
+		img = cv2.imread(directoryPrefix + file)
+		print(file)
+		images[file] = [img]
+	print("Done.") 
+
+	# load bounding boxes with json encoding library
+	annotation = open(annotation_path)
+	jsonAnnotation = json.load(annotation)
+	annotation.close()
+
+	print("Loading annotation file...")
+	for entry in jsonAnnotation:
+		# Filename format is ../1-50/Image00--.jpg
+		tokens = entry["filename"].split('/')
+	 	
+		if(len(tokens) == 1):
+			filename = entry["filename"].split("\\")[-1]
+		else:
+			filename = entry["filename"].split("/")[-1]
+	
+		image = images[filename][0]
+		boundingBoxes = parseBoundingBoxes(entry["annotations"], image.shape)
+		images[filename].append(boundingBoxes)		
+
+		# load bounding boxes with json encoding library
+	 	# apply bounding boxes to images	
+	print("Done")
+	return(images)
+
+
+
 def processImages(images, delta):
 	# apply transformations
 	imgList = []
@@ -24,9 +82,10 @@ def processImages(images, delta):
 	for imageName, data in images.items():
 		imgList.append(data[0])
 		boundingBoxes.append(data[1])
-	print("done augmenting")
+
 	image_aug = delta.augment_images(imgList)
 	bbs_aug = delta.augment_bounding_boxes(boundingBoxes)
+	print("done augmenting")
 	
 	return image_aug, bbs_aug
 
@@ -35,6 +94,7 @@ def writeData(augImages, augBBoxes, outputPath):
 	for index in range(len(augImages)):
 		# generate file name
 		outFileName = "Image" + str(index) + '_' +  datetime.utcnow().isoformat() + '.jpg'
+		outFileName = outFileName.replace(":", "_")
 		# generate json entry for file
 		annotations = []
 
@@ -74,63 +134,17 @@ def parseBoundingBoxes(annotations, imageShape):
 	bbs = ia.BoundingBoxesOnImage(boundingBoxes, shape=imageShape)
 	return(bbs)
 
+
+
+
+
+
 # parser.add_argument('n', type=int, help='Number of images to generate')
 parser.add_argument('input_path', type=str, help='Path to images')
 parser.add_argument('output_path', type=str, help='Path for output images')
 parser.add_argument('annotation_path', type=str, help='Path for annotation file')
 
 args = parser.parse_args()
-
-directoryPrefix = './'
-
-filepaths = []
-
-outputFolderPath =  args.output_path
-
-if os.path.isdir(args.input_path):
-	directoryPrefix = args.input_path + '/'
-	# Recursively walks through the directory structure and creates two lists. One for directories
-	# and one for file names.
-	for (dirpath, dirnames, filenames) in os.walk(args.input_path):
-		filepaths.extend(filenames)
-		break 
-	
-	# Creates output folder if folder doesn't exist
-	if not os.path.exists(outputFolderPath):
-		os.mkdir(outputFolderPath)
-else:
-	filepaths = [ args.input_path ]
-
-
-# Dictionary stores {image_name, [image, bounding_box]}
-images = {}
-
-print("Reading images..")
-for file in filepaths:
-	# bug: loads annotation file as well as images
-	# possible solutions: store annotations separate from images
-	# Possible file structure: /images /annotations
-	img = cv2.imread(directoryPrefix + file)
-	print(file)
-	images[file] = [img]
-print("Done.") 
-
-# load bounding boxes with json encoding library
-annotation = open(args.annotation_path)
-jsonAnnotation = json.load(annotation)
-
-print("Loading annotation file...")
-for entry in jsonAnnotation:
-	# Filename format is ../1-50/Image00--.jpg
-	filename = entry["filename"].split('/')[-1]
-	
-	image = images[filename][0]
-	boundingBoxes = parseBoundingBoxes(entry["annotations"], image.shape)
-	images[filename].append(boundingBoxes)		
-
-	# load bounding boxes with json encoding library
- 	# apply bounding boxes to images	
-print("Done")
 
 
 ia.seed(1)
@@ -155,12 +169,10 @@ seq = iaa.Sequential([
 	# In 20% of all cases, we sample the multiplier once per channel,
 	# which can end up changing the color of the images.
 	iaa.Multiply((0.8, 1.2), per_channel=0.2),
-	# Apply affine transformations to each image.
-	# Scale/zoom them, translate/move them, rotate them and shear them.
 	iaa.Affine(
         	scale={"x": (0.8, 1.2), "y": (0.8, 1.2)},
         	translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)},
-        	rotate=(-10, 10),
+        	rotate=(-5, 5),
     	)
 ], random_order=True)
 
@@ -172,9 +184,9 @@ seq = iaa.Sequential([
 seq_det = seq.to_deterministic()
 
 print("Augmenting images...")
-augImages, augBBoxes = processImages(images, seq_det)
+augImages, augBBoxes = processImages(readData(args.input_path, args.output_path, args.annotation_path), seq_det)
 print("Done.")
 
 print("Saving images...")
-writeData(augImages, augBBoxes, outputFolderPath)
+writeData(augImages, augBBoxes, args.output_path)
 print("Done.")
