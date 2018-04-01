@@ -42,9 +42,9 @@ def processImageBW(img):
 	return(cv2.equalizeHist(img))
 	
 
-parser = argparse.ArgumentParser(description='Reduce the number of colors in an image with k-means clustering')
+parser = argparse.ArgumentParser(description='Apply histogram equalization to a set of images')
 
-parser.add_argument('pathname', metavar="path_to_file", help='File to be processed')
+parser.add_argument('pathname', metavar="path_to_folder", help='Folder to be processed')
 					
 args = parser.parse_args()
 
