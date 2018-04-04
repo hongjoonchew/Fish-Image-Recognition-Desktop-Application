@@ -7,20 +7,18 @@ import datetime
 import os
 import platform
 import subprocess
+import time
 
 
 output_directory = "/"
 
-CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
-           "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
-           "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
-           "sofa", "train", "tvmonitor"]
+CLASSES = ["background", "steelhead", "bass"]
 
 COLORS = np.random.uniform(0, 255, size=(len(CLASSES),3))
 
-CONFIDENCE_MIN = 0.2
+CONFIDENCE_MIN = 0.3
 
-net = cv2.dnn.readNetFromCaffe("MobileNetSSD_deploy.prototxt.txt", "MobileNetSSD_deploy.caffemodel")
+net = cv2.dnn.readNetFromCaffe("deploy.prototxt.txt", "VGG_VOC0712_SSD_300x300_iter_11535.caffemodel")
 
 def show_webcam_with_model(mirror=False):
     cam = cv2.VideoCapture(0)
@@ -30,7 +28,7 @@ def show_webcam_with_model(mirror=False):
             img = cv2.flip(img, 1)
 
         (h,w) = img.shape[:2]
-        blob = cv2.dnn.blobFromImage(cv2.resize(img, (300,300)), 0.007843, (300, 300), 127.5)
+        blob = cv2.dnn.blobFromImage(cv2.resize(img, (300,300)), 0.5, (300, 300), 127.5)
         net.setInput(blob)
         detections = net.forward()
 
@@ -41,7 +39,7 @@ def show_webcam_with_model(mirror=False):
         
             if confidence > CONFIDENCE_MIN:
                 idx = int(detections[0, 0, i, 1])
-                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])t
                 (startX, startY, endX, endY) = box.astype("int")
 
                 label = "{}: {:.2f}%".format(CLASSES[idx], confidence*100)
@@ -57,7 +55,7 @@ def show_webcam_with_model(mirror=False):
 
         # if the `q` key was pressed, break from the loop
         if key == ord('q'):
-            print("Q pressed")
+            break
     cv2.destroyAllWindows()
 
 
@@ -94,6 +92,64 @@ def processVideo(self, filepath):
     cv2.destroyAllWindows()
 
 
+def processImage(self, filepath):
+    img = cv2.imread(filepath)
+    (h, w) = img.shape[:2]
+    blob = cv2.dnn.blobFromImage(cv2.resize(img, (300, 300)), 0.007843, (300, 300), 127.5)
+    net.setInput(blob)
+    detections = net.forward()
+
+    img_copy = img.copy()  # create a copy without bounding boxes for screen capture
+
+    for i in np.arange(0, detections.shape[2]):
+        confidence = detections[0, 0, i, 2]
+
+        if confidence > CONFIDENCE_MIN:
+            idx = int(detections[0, 0, i, 1])
+            box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+            (startX, startY, endX, endY) = box.astype("int")
+
+            label = "{}: {:.2f}%".format(CLASSES[idx], confidence * 100)
+            cv2.rectangle(img, (startX, startY), (endX, endY), COLORS[idx], 2)
+            y = startY - 15 if startY - 15 > 15 else startY + 15
+            cv2.putText(img, label, (startX, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, COLORS[idx], 2)
+
+    cv2.imshow('Project Pisces Cam', img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+def processDroneVideo(self):
+    cam = cv2.VideoCapture("http://192.168.254.1:8090/?action=stream")
+
+    while (cam.isOpened()):
+        ret, img = cam.read()
+        (h, w) = img.shape[:2]
+        blob = cv2.dnn.blobFromImage(cv2.resize(img, (300, 300)), 0.007843, (300, 300), 127.5)
+        net.setInput(blob)
+        detections = net.forward()
+
+        img_copy = img.copy()  # create a copy without bounding boxes for screen capture
+
+        for i in np.arange(0, detections.shape[2]):
+            confidence = detections[0, 0, i, 2]
+
+            if confidence > CONFIDENCE_MIN:
+                idx = int(detections[0, 0, i, 1])
+                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+                (startX, startY, endX, endY) = box.astype("int")
+
+                label = "{}: {:.2f}%".format(CLASSES[idx], confidence * 100)
+                cv2.rectangle(img, (startX, startY), (endX, endY), COLORS[idx], 2)
+                y = startY - 15 if startY - 15 > 15 else startY + 15
+                cv2.putText(img, label, (startX, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, COLORS[idx], 2)
+
+        cv2.imshow('Project Pisces Cam', img)
+        if (cv2.waitKey(1) & 0xFF) == ord('q'):
+            break
+
+    cam.release()
+    cv2.destroyAllWindows()
+
 class Window(QtWidgets.QWidget):
     def __init__(self):
         QtWidgets.QWidget.__init__(self)
@@ -108,8 +164,8 @@ class Window(QtWidgets.QWidget):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(Form.sizePolicy().hasHeightForWidth())
         Form.setSizePolicy(sizePolicy)
-        Form.setMinimumSize(QtCore.QSize(500, 450))
-        Form.setMaximumSize(QtCore.QSize(500, 450))
+        Form.setMinimumSize(QtCore.QSize(500, 500))
+        Form.setMaximumSize(QtCore.QSize(500, 500))
         Form.setStyleSheet("background-color: #632733")
         self.runButton = QtWidgets.QPushButton(Form)
         self.runButton.setGeometry(QtCore.QRect(15, 400, 150, 40))
@@ -123,7 +179,11 @@ class Window(QtWidgets.QWidget):
         self.setDefaultDirectoryButton.setGeometry(QtCore.QRect(335, 400, 150, 40))
         self.setDefaultDirectoryButton.setObjectName("setDefaultDirectoryButton")
         self.setDefaultDirectoryButton.setStyleSheet("background-color: #FFFFFF")
-        self.initButtons(self.runButton, self.inputVideoButton, self.setDefaultDirectoryButton)
+        self.droneVideoButton = QtWidgets.QPushButton(Form)
+        self.droneVideoButton.setGeometry(QtCore.QRect(175, 450, 150, 40))
+        self.droneVideoButton.setObjectName("droneVideoButton")
+        self.droneVideoButton.setStyleSheet("background-color: #FFFFFF")
+        self.initButtons(self.runButton, self.inputVideoButton, self.setDefaultDirectoryButton, self.droneVideoButton)
         self.imageLabel = QtWidgets.QLabel(Form)
         self.imageLabel.setGeometry(QtCore.QRect(20, 10, 460, 380))
         self.imageLabel.setObjectName("imageLabel")
@@ -138,10 +198,11 @@ class Window(QtWidgets.QWidget):
         QtCore.QMetaObject.connectSlotsByName(Form)
         self.show()
     
-    def initButtons(self, runButton, inputVideoButton, setDefaultDirectoryButton):
+    def initButtons(self, runButton, inputVideoButton, setDefaultDirectoryButton, droneVideoButton):
         runButton.clicked.connect(self.runButtonPressed)
         inputVideoButton.clicked.connect(self.inputVideoButtonPressed)
         setDefaultDirectoryButton.clicked.connect(self.setDefaultDirectoryButtonPressed)
+        droneVideoButton.clicked.connect(self.droneButtonPressed)
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
@@ -149,8 +210,11 @@ class Window(QtWidgets.QWidget):
         self.runButton.setText(_translate("Form", "Run Model"))
         self.inputVideoButton.setText(_translate("Form", "Input Video"))
         self.setDefaultDirectoryButton.setText(_translate("Form", "Set Default Dir"))
+        self.droneVideoButton.setText(_translate("Form", "Drone Input"))
     
-    
+    def droneButtonPressed(self):
+        processDroneVideo(self)
+
     def runButtonPressed(self):
         show_webcam_with_model(mirror=True)
     
