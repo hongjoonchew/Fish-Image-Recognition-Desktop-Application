@@ -1,7 +1,7 @@
 import sys
 import cv2
 import numpy as np
-import Tkinter,tkFileDialog
+import tkinter, tkinter.filedialog
 import os
 import datetime
 
@@ -14,19 +14,19 @@ CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
 
 COLORS = np.random.uniform(0, 255, size=(len(CLASSES),3))
  
-net = cv2.dnn.readNetFromCaffe("../MobileNetSSD_deploy.prototxt.txt", "../MobileNetSSD_deploy.caffemodel")
+net = cv2.dnn.readNetFromCaffe("../deploy.prototxt.txt", "../snapshot_iter_2538.caffemodel")
 
 
 
-root = Tkinter.Tk()
-filez = tkFileDialog.askopenfilenames(parent=root,title='Choose a file')
-print root.tk.splitlist(filez)
+root = tkinter.Tk()
+filez = tkinter.filedialog.askopenfilenames(parent=root,title='Choose a file')
+#print root.tk.splitlist(filez)
 
 fileList = root.tk.splitlist(filez)
 
 size = len(fileList)
 
-print size
+#print size
 
 
 def generate_annotation_file(file_name, detections, img_w, img_h):
