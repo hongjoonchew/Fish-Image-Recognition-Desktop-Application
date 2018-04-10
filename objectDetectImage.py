@@ -49,6 +49,5 @@ def identifyImage(model_file, pretrained_model, image):
    img = cv2.addWeighted(overlay, 0.5, img, 0.5, 0, img)
 
    cv2.putText(img, "Inference time: %dms per frame" % end, (10,500), cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),2)
-   cv2.imshow('image',img)
    cv2.waitKey(0)
-   cv2.destroyAllWindows()
+cv2.destroyAllWindows()
