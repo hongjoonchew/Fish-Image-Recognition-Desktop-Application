@@ -8,6 +8,7 @@ import os
 import platform
 import subprocess
 import time
+from objectDetectImage import identifyImage
 
 
 output_directory = "/"
@@ -16,9 +17,14 @@ CLASSES = ["background", "steelhead", "bass"]
 
 COLORS = np.random.uniform(0, 255, size=(len(CLASSES),3))
 
-CONFIDENCE_MIN = 0.3
+CONFIDENCE_MIN = 0.2
 
-net = cv2.dnn.readNetFromCaffe("deploy.prototxt.txt", "VGG_VOC0712_SSD_300x300_iter_11535.caffemodel")
+#SSD MobileNet Setup
+net = cv2.dnn.readNetFromCaffe("MobileNetSSD_deploy.prototxt.txt", "MobileNetSSD_deploy.caffemodel")
+
+#DetectNet Setup Variables
+model_file = "deploy.prototxt"
+pretrained_model = "snapshot_iter_27216.caffemodel"
 
 def show_webcam_with_model(mirror=False):
     cam = cv2.VideoCapture(0)
@@ -28,7 +34,7 @@ def show_webcam_with_model(mirror=False):
             img = cv2.flip(img, 1)
 
         (h,w) = img.shape[:2]
-        blob = cv2.dnn.blobFromImage(cv2.resize(img, (300,300)), 0.5, (300, 300), 127.5)
+        blob = cv2.dnn.blobFromImage(cv2.resize(img, (300,300)), 0.007843, (300, 300), 127.5)
         net.setInput(blob)
         detections = net.forward()
 
@@ -36,10 +42,11 @@ def show_webcam_with_model(mirror=False):
 
         for i in np.arange(0, detections.shape[2]):
             confidence = detections[0, 0, i, 2]
-        
+            print(confidence)
+
             if confidence > CONFIDENCE_MIN:
                 idx = int(detections[0, 0, i, 1])
-                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])t
+                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
                 (startX, startY, endX, endY) = box.astype("int")
 
                 label = "{}: {:.2f}%".format(CLASSES[idx], confidence*100)
@@ -91,7 +98,7 @@ def processVideo(self, filepath):
     cap.release()
     cv2.destroyAllWindows()
 
-
+# This method uses the SSD model instead of DetectNet
 def processImage(self, filepath):
     img = cv2.imread(filepath)
     (h, w) = img.shape[:2]
@@ -117,6 +124,10 @@ def processImage(self, filepath):
     cv2.imshow('Project Pisces Cam', img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+# This processImage method uses the DetectNet model instead, referring to another script.
+def processImageDetectNet(self, filepath):
+    identifyImage(model_file,pretrained_model,filepath)
 
 def processDroneVideo(self):
     cam = cv2.VideoCapture("http://192.168.254.1:8090/?action=stream")
@@ -154,7 +165,7 @@ class Window(QtWidgets.QWidget):
     def __init__(self):
         QtWidgets.QWidget.__init__(self)
         self.setupUi(self)
-    
+
     def setupUi(self, Form):
         Form.setObjectName("Form")
         Form.setEnabled(True)
@@ -167,23 +178,31 @@ class Window(QtWidgets.QWidget):
         Form.setMinimumSize(QtCore.QSize(500, 500))
         Form.setMaximumSize(QtCore.QSize(500, 500))
         Form.setStyleSheet("background-color: #632733")
+        #Webcam Model Button
         self.runButton = QtWidgets.QPushButton(Form)
         self.runButton.setGeometry(QtCore.QRect(15, 400, 150, 40))
         self.runButton.setObjectName("runButton")
         self.runButton.setStyleSheet("background-color: #FFFFFF")
+        #Input Video Button
         self.inputVideoButton = QtWidgets.QPushButton(Form)
         self.inputVideoButton.setGeometry(QtCore.QRect(175, 400, 150, 40))
         self.inputVideoButton.setObjectName("inputVideoButton")
         self.inputVideoButton.setStyleSheet("background-color: #FFFFFF")
+        #Default Directory Button
         self.setDefaultDirectoryButton = QtWidgets.QPushButton(Form)
         self.setDefaultDirectoryButton.setGeometry(QtCore.QRect(335, 400, 150, 40))
         self.setDefaultDirectoryButton.setObjectName("setDefaultDirectoryButton")
         self.setDefaultDirectoryButton.setStyleSheet("background-color: #FFFFFF")
+        #Drone Video Button
         self.droneVideoButton = QtWidgets.QPushButton(Form)
         self.droneVideoButton.setGeometry(QtCore.QRect(175, 450, 150, 40))
         self.droneVideoButton.setObjectName("droneVideoButton")
         self.droneVideoButton.setStyleSheet("background-color: #FFFFFF")
-        self.initButtons(self.runButton, self.inputVideoButton, self.setDefaultDirectoryButton, self.droneVideoButton)
+        self.inputImageButton = QtWidgets.QPushButton(Form)
+        self.inputImageButton.setGeometry(QtCore.QRect(325,450,150,40))
+        self.inputImageButton.setObjectName("inputImageButton")
+        self.inputImageButton.setStyleSheet("background-color: #FFFFFF")
+        self.initButtons(self.runButton, self.inputVideoButton, self.setDefaultDirectoryButton, self.droneVideoButton, self.inputImageButton)
         self.imageLabel = QtWidgets.QLabel(Form)
         self.imageLabel.setGeometry(QtCore.QRect(20, 10, 460, 380))
         self.imageLabel.setObjectName("imageLabel")
@@ -192,17 +211,18 @@ class Window(QtWidgets.QWidget):
         self.imageLabel.setScaledContents(True)
         self.imageLabel.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Ignored)
         self.imageLabel.show()
-        
-        
+
+
         self.retranslateUi(Form)
         QtCore.QMetaObject.connectSlotsByName(Form)
         self.show()
-    
-    def initButtons(self, runButton, inputVideoButton, setDefaultDirectoryButton, droneVideoButton):
+
+    def initButtons(self, runButton, inputVideoButton, setDefaultDirectoryButton, droneVideoButton, inputImageButton):
         runButton.clicked.connect(self.runButtonPressed)
         inputVideoButton.clicked.connect(self.inputVideoButtonPressed)
         setDefaultDirectoryButton.clicked.connect(self.setDefaultDirectoryButtonPressed)
         droneVideoButton.clicked.connect(self.droneButtonPressed)
+        inputImageButton.clicked.connect(self.inputImageButtonPressed)
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
@@ -211,19 +231,26 @@ class Window(QtWidgets.QWidget):
         self.inputVideoButton.setText(_translate("Form", "Input Video"))
         self.setDefaultDirectoryButton.setText(_translate("Form", "Set Default Dir"))
         self.droneVideoButton.setText(_translate("Form", "Drone Input"))
-    
+
     def droneButtonPressed(self):
         processDroneVideo(self)
 
     def runButtonPressed(self):
         show_webcam_with_model(mirror=True)
-    
+
     def inputVideoButtonPressed(self):
         options = QtWidgets.QFileDialog.Options()
         options |= QtWidgets.QFileDialog.DontUseNativeDialog
         fileName, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Select a File", "", "", options=options)
         if fileName:  # If a filename is successfully retrieved, add picture to window
             processVideo(self, fileName)
+
+    def inputImageButtonPressed(self):
+        options = QtWidgets.QFileDialog.Options()
+        options |= QtWidgets.QFileDialog.DontUseNativeDialog
+        fileName, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Select a File", "", "", options=options)
+        if fileName:  # If a filename is successfully retrieved, add picture to window
+            processImageDetectNet(self, fileName)
 
     def setDefaultDirectoryButtonPressed(self):
         output_directory = QtWidgets.QFileDialog.getExistingDirectory(self, "Output Directory", "", QtWidgets.QFileDialog.ShowDirsOnly)
