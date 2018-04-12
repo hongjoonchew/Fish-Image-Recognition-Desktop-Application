@@ -22,7 +22,7 @@ COLORS = np.random.uniform(0, 255, size=(len(CLASSES),3))
 CONFIDENCE_MIN = 0.2
 
 #SSD MobileNet Setup
-net = cv2.dnn.readNetFromCaffe("MobileNetSSD_deploy.prototxt.txt", "MobileNetSSD_deploy.caffemodel")
+#net = cv2.dnn.readNetFromCaffe("MobileNetSSD_deploy.prototxt.txt", "MobileNetSSD_deploy.caffemodel")
 
 #DetectNet Setup Variables
 model_file = "/home/sagis/Desktop/epoch/deploy.prototxt"
@@ -159,15 +159,15 @@ class Window(QtGui.QWidget):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(Form.sizePolicy().hasHeightForWidth())
         Form.setSizePolicy(sizePolicy)
-        Form.setMinimumSize(QtCore.QSize(500, 500))
-        Form.setMaximumSize(QtCore.QSize(500, 500))
+        Form.setMinimumSize(QtCore.QSize(500, 550))
+        Form.setMaximumSize(QtCore.QSize(500, 550))
         Form.setStyleSheet("background-color: #632733")
         #Webcam Model Button
         self.runButton = QtGui.QPushButton(Form)
         self.runButton.setGeometry(QtCore.QRect(15, 400, 150, 40))
         self.runButton.setObjectName("runButton")
         self.runButton.setStyleSheet("background-color: #FFFFFF")
-        #Input Video Button
+        # Input Video Button
         self.inputVideoButton = QtGui.QPushButton(Form)
         self.inputVideoButton.setGeometry(QtCore.QRect(175, 400, 150, 40))
         self.inputVideoButton.setObjectName("inputVideoButton")
@@ -183,10 +183,19 @@ class Window(QtGui.QWidget):
         self.droneVideoButton.setObjectName("droneVideoButton")
         self.droneVideoButton.setStyleSheet("background-color: #FFFFFF")
         self.inputImageButton = QtGui.QPushButton(Form)
-        self.inputImageButton.setGeometry(QtCore.QRect(325,450,150,40))
+        self.inputImageButton.setGeometry(QtCore.QRect(335,450,150,40))
         self.inputImageButton.setObjectName("inputImageButton")
         self.inputImageButton.setStyleSheet("background-color: #FFFFFF")
-        self.initButtons(self.runButton, self.inputVideoButton, self.setDefaultDirectoryButton, self.droneVideoButton, self.inputImageButton)
+        # Steelhead Video Button
+        self.inputSteelheadVideoButton = QtGui.QPushButton(Form)
+        self.inputSteelheadVideoButton.setGeometry(QtCore.QRect(15, 450, 150, 40))
+        self.inputSteelheadVideoButton.setObjectName("inputSteelheadVideoButton")
+        self.inputSteelheadVideoButton.setStyleSheet("background-color: #FFFFFF")
+        self.inputSteelheadImageButton = QtGui.QPushButton(Form)
+        self.inputSteelheadImageButton.setGeometry(QtCore.QRect(175, 500, 150, 40))
+        self.inputSteelheadImageButton.setObjectName("inputSteelheadImageButton")
+        self.inputSteelheadImageButton.setStyleSheet("background-color: #FFFFFF")
+        self.initButtons(self.runButton, self.inputVideoButton, self.setDefaultDirectoryButton, self.droneVideoButton, self.inputImageButton, self.inputSteelheadImageButton, self.inputSteelheadVideoButton)
         self.imageLabel = QtGui.QLabel(Form)
         self.imageLabel.setGeometry(QtCore.QRect(20, 10, 460, 380))
         self.imageLabel.setObjectName("imageLabel")
@@ -201,12 +210,14 @@ class Window(QtGui.QWidget):
         QtCore.QMetaObject.connectSlotsByName(Form)
         self.show()
 
-    def initButtons(self, runButton, inputVideoButton, setDefaultDirectoryButton, droneVideoButton, inputImageButton):
+    def initButtons(self, runButton, inputVideoButton, setDefaultDirectoryButton, droneVideoButton, inputImageButton, inputSteelheadVideoButton, inputSteelheadImageButton):
         runButton.clicked.connect(self.runButtonPressed)
         inputVideoButton.clicked.connect(self.inputVideoButtonPressed)
         setDefaultDirectoryButton.clicked.connect(self.setDefaultDirectoryButtonPressed)
         droneVideoButton.clicked.connect(self.droneButtonPressed)
         inputImageButton.clicked.connect(self.inputImageButtonPressed)
+        inputSteelheadVideoButton.clicked.connect(self.inputSteelheadVideoButtonPressed)
+        inputSteelheadImageButton.clicked.connect(self.inputSteelheadImageButtonPressed)
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
@@ -215,6 +226,9 @@ class Window(QtGui.QWidget):
         self.inputVideoButton.setText(_translate("Form", "Input Video"))
         self.setDefaultDirectoryButton.setText(_translate("Form", "Set Default Dir"))
         self.droneVideoButton.setText(_translate("Form", "Drone Input"))
+        self.inputImageButton.setText(_translate("Form", "Input Image"))
+        self.inputSteelheadVideoButton.setText(_translate("Form", "Input Steelhead Video"))
+        self.inputSteelheadImageButton.setText(_translate("Form", "Input Steelhead Image"))
 
     def droneButtonPressed(self):
         processDroneVideo(self)
@@ -224,6 +238,7 @@ class Window(QtGui.QWidget):
 
     def inputVideoButtonPressed(self):
         options = QtGui.QFileDialog.Options()
+        QtGui.QFileDialog.setStyleSheet(self, "background-color: #CCCCCC")
         options |= QtGui.QFileDialog.DontUseNativeDialog
         fileName = QtGui.QFileDialog.getOpenFileName(self, "Select a File", "", "", options=options)
         if fileName:  # If a filename is successfully retrieved, add picture to window
@@ -231,10 +246,27 @@ class Window(QtGui.QWidget):
 
     def inputImageButtonPressed(self):
         options = QtGui.QFileDialog.Options()
+        QtGui.QFileDialog.setStyleSheet(self, "background-color: #CCCCCC")
         options |= QtGui.QFileDialog.DontUseNativeDialog
         fileName = QtGui.QFileDialog.getOpenFileName(self, "Select a File", "", "", options=options)
         if fileName:  # If a filename is successfully retrieved, add picture to window
             processImageDetectNet(self, fileName)
+
+    def inputSteelheadVideoButtonPressed(self):
+        options = QtGui.QFileDialog.Options()
+        QtGui.QFileDialog.setStyleSheet(self, "background-color: #CCCCCC")
+        options |= QtGui.QFileDialog.DontUseNativeDialog
+        fileName = QtGui.QFileDialog.getOpenFileName(self, "Select a File", "", "", options=options)
+        if fileName:  # If a filename is successfully retrieved, add picture to window
+            identifySteelheadVideo(self, fileName)
+
+    def inputSteelheadImageButtonPressed(self):
+        options = QtGui.QFileDialog.Options()
+        QtGui.QFileDialog.setStyleSheet(self, "background-color: #CCCCCC")
+        options |= QtGui.QFileDialog.DontUseNativeDialog
+        fileName = QtGui.QFileDialog.getOpenFileName(self, "Select a File", "", "", options=options)
+        if fileName:  # If a filename is successfully retrieved, add picture to window
+            identifySteelheadImage(self, fileName)
 
     def setDefaultDirectoryButtonPressed(self):
         output_directory = QtGui.QFileDialog.getExistingDirectory(self, "Output Directory", "", QtGui.QFileDialog.ShowDirsOnly)
