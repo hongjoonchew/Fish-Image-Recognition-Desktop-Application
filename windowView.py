@@ -9,12 +9,8 @@ import platform
 import subprocess
 import time
 from objectDetectImage import identifyImage
-<<<<<<< HEAD
 from objectDetectImage import identifyVideo
-=======
->>>>>>> 0c4d63ae734cfe1aef18768b2fb23f2c381990b7
 import caffe
-
 
 output_directory = "/"
 
@@ -49,6 +45,8 @@ def show_webcam_with_model(mirror=False):
 def processVideo(self, filepath):
     identifyWindowView(currently_selected_prototxt, currently_selected_model, str(filepath), steelhead_boolean)
 
+
+
 def identifyWindowView(prototxt, model, filepath, steelhead_boolean):
     vid = cv2.VideoCapture(filepath)
     every_nth = 10
@@ -59,12 +57,11 @@ def identifyWindowView(prototxt, model, filepath, steelhead_boolean):
     net = caffe.Net(prototxt, model, caffe.TEST )
 
 
-
     transformer = caffe.io.Transformer({'data': net.blobs['data'].data.shape}) 
     transformer.set_transpose('data', (2,0,1))
     transformer.set_raw_scale('data', 255)
     transformer.set_channel_swap('data', (2,1,0))
-
+    
     while(True):
         # Capture video frame-by-frame
         ret, frame = vid.read()
@@ -76,12 +73,14 @@ def identifyWindowView(prototxt, model, filepath, steelhead_boolean):
             vid.release()
             # Message to be displayed after releasing the device
             print "Released Video Resource"
+            break
 
         if counter%every_nth == 0:
              
-             # Resize the captured frame to match the DetectNet model
-            frame = cv2.resize(frame, (1280, 720), 0, 0)
             
+             # Resize the captured frame to match the DetectNet model
+
+            frame = cv2.resize(frame, (1280, 720), 0, 0)
             # Use the Caffe transformer to preprocess the frame
             data = transformer.preprocess('data', frame.astype('float16')/255)
             
@@ -115,11 +114,18 @@ def identifyWindowView(prototxt, model, filepath, steelhead_boolean):
                         (10,500), cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),2)
 
             # Display the frame
-            cv2.imshow('frame',frame)
+            cv2.imshow('Project Pisces Cam',frame)
             key = cv2.waitKey(1)
             if key ==  ord('q'):
+                vid.release()
+                break
+            if(cv2.getWindowProperty('Project Pisces Cam',0) <= -1):
                 break
     cv2.destroyAllWindows()
+    del net
+    del transformer
+    
+
 
 def identifySteelheadVideo(self, filepath):
     identifyWindowView(currently_selected_prototxt, currently_selected_model, str(filepath), True)
@@ -170,8 +176,8 @@ def switchModels(self):
     global pretrained_model_steelhead
     global pretrained_model
     if(steelhead_boolean):
-        currently_selected_model = model_file
-        currently_selected_prototxt = pretrained_model
+        currently_selected_model = pretrained_model
+        currently_selected_prototxt = model_file
         steelhead_boolean = False
     else:
         currently_selected_prototxt =  model_file_steelhead
@@ -251,7 +257,7 @@ class Window(QtGui.QWidget):
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
         Form.setWindowTitle(_translate("Form", "Project Pisces"))
-        self.runButton.setText(_translate("Form", "Run Model"))
+        self.runButton.setText(_translate("Form", "Run Webcam"))
         self.inputVideoButton.setText(_translate("Form", "Input Video"))
         self.setDefaultDirectoryButton.setText(_translate("Form", "Set Default Dir"))
         self.droneVideoButton.setText(_translate("Form", "Drone Input"))

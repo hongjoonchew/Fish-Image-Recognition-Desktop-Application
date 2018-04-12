@@ -49,8 +49,11 @@ def identifyImage(model_file, pretrained_model, image, steelhead_boolean):
 
    cv2.putText(img, "Inference time: %dms per frame" % end, (10,500), cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),2)
    cv2.imshow('Project Pisces',img)
+   del net
+   del transformer
    cv2.waitKey(0)
    cv2.destroyAllWindows()
+
 
 def identifyVideo(model_file, pretrained_model, image, steelhead_boolean):
    caffe.set_mode_gpu()
@@ -95,6 +98,7 @@ def identifyVideo(model_file, pretrained_model, image, steelhead_boolean):
    cv2.putText(img, "Inference time: %dms per frame" % end, (10,500), cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),2)
    cv2.waitKey(0)
    cv2.destroyAllWindows()
+   del net
 
 def detectImage(model_file, pretrained_model, image):
    caffe.set_mode_gpu()
@@ -120,5 +124,6 @@ def detectImage(model_file, pretrained_model, image):
 
    net.blobs['data'].data[...] = data
    bounding_boxes = net.forward()['bbox-list'][0]
+   del net
    return bounding_boxes
 
