@@ -9,7 +9,10 @@ import platform
 import subprocess
 import time
 from objectDetectImage import identifyImage
+<<<<<<< HEAD
 from objectDetectImage import identifyVideo
+=======
+>>>>>>> 0c4d63ae734cfe1aef18768b2fb23f2c381990b7
 import caffe
 
 

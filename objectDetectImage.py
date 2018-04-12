@@ -121,3 +121,4 @@ def detectImage(model_file, pretrained_model, image):
    net.blobs['data'].data[...] = data
    bounding_boxes = net.forward()['bbox-list'][0]
    return bounding_boxes
+
