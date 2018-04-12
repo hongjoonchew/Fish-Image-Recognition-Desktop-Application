@@ -25,25 +25,25 @@ CONFIDENCE_MIN = 0.2
 #net = cv2.dnn.readNetFromCaffe("MobileNetSSD_deploy.prototxt.txt", "MobileNetSSD_deploy.caffemodel")
 
 #DetectNet Setup Variables
-model_file = "/home/sagis/Desktop/epoch/deploy.prototxt"
-pretrained_model = "/home/sagis/Desktop/epoch/snapshot_iter_27216.caffemodel"
+model_file = "Chinook Model/chinook_deploy.prototxt"
+pretrained_model = "Chinook Model/snapshot_iter_27216.caffemodel"
 
-model_file_steelhead = "/home/sagis/Desktop/epoch/deploy.prototxt"
-pretrained_model_steelhead = "/home/sagis/Desktop/epoch/snapshot_iter_600.caffemodel"
+model_file_steelhead = "Steelhead Model/steelhead_deploy.prototxt"
+pretrained_model_steelhead = "Steelhead Model/snapshot_iter_7040.caffemodel"
 
 def show_webcam_with_model(mirror=False):
-    identifyWindowView(model_file, pretrained_model, 0)
+    identifyWindowView(model_file, pretrained_model, 0, False)
 
 
 def processVideo(self, filepath):
-    identifyWindowView(model_file, pretrained_model, str(filepath))
+    identifyWindowView(model_file, pretrained_model, str(filepath), False)
 
-def identifyWindowView(prototxt, model, filepath):
+def identifyWindowView(prototxt, model, filepath, steelhead_boolean):
     vid = cv2.VideoCapture(filepath)
     every_nth = 10
     counter = 0
 
-    caffe.set_mode_cpu()
+    caffe.set_mode_gpu()
 
     net = caffe.Net(prototxt, model, caffe.TEST )
 
@@ -80,7 +80,10 @@ def identifyWindowView(prototxt, model, filepath):
             # Measure inference time for the feed-forward operation
             start = time.time()
             # The output of DetectNet is an array of bounding box predictions
-            bounding_boxes = net.forward()['bbox-list'][0]
+            if(steelhead_boolean):
+                bounding_boxes = net.forward()['bbox-list-class0'][0]
+            else:
+                bounding_boxes = net.forward()['bbox-list'][0]
             end = (time.time() - start)*1000
             
             # Convert the image from OpenCV BGR format to matplotlib RGB format for display
@@ -103,13 +106,15 @@ def identifyWindowView(prototxt, model, filepath):
             # Display the frame
             cv2.imshow('frame',frame)
             key = cv2.waitKey(1)
+            if key ==  ord('q'):
+                break
     cv2.destroyAllWindows()
 
-def identifySteelheadVideo(filepath):
-    identifyWindowView(model_file_steelhead,pretrained_model_steelhead, filepath)
+def identifySteelheadVideo(self, filepath):
+    identifyWindowView(model_file_steelhead,pretrained_model_steelhead, str(filepath), True)
     
-def identifySteelheadImage(filepath):
-    identifyImage(model_file_steelhead,pretrained_model_steelhead, filepath)
+def identifySteelheadImage(self, filepath):
+    identifyImage(model_file_steelhead,pretrained_model_steelhead, str(filepath), True)
 
 # This method uses the SSD model instead of DetectNet
 '''def processImage(self, filepath):
@@ -140,10 +145,10 @@ def identifySteelheadImage(filepath):
 '''
 # This processImage method uses the DetectNet model instead, referring to another script.
 def processImageDetectNet(self, filepath):
-    identifyImage(model_file,pretrained_model,filepath)
+    identifyImage(model_file,pretrained_model,str(filepath), False)
 
 def processDroneVideo(self):
-    identifyWindowView(str("http://192.168.254.1:8090/?action=stream"))
+    identifyWindowView(model_file_steelhead, pretrained_model_steelhead, str("http://192.168.254.1:8090/?action=stream"), True)
 
 class Window(QtGui.QWidget):
     def __init__(self):
@@ -210,7 +215,7 @@ class Window(QtGui.QWidget):
         QtCore.QMetaObject.connectSlotsByName(Form)
         self.show()
 
-    def initButtons(self, runButton, inputVideoButton, setDefaultDirectoryButton, droneVideoButton, inputImageButton, inputSteelheadVideoButton, inputSteelheadImageButton):
+    def initButtons(self, runButton, inputVideoButton, setDefaultDirectoryButton, droneVideoButton, inputImageButton, inputSteelheadImageButton, inputSteelheadVideoButton):
         runButton.clicked.connect(self.runButtonPressed)
         inputVideoButton.clicked.connect(self.inputVideoButtonPressed)
         setDefaultDirectoryButton.clicked.connect(self.setDefaultDirectoryButtonPressed)
