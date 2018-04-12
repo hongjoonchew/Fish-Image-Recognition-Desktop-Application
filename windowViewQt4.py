@@ -3,14 +3,12 @@ import sys
 import cv2
 import numpy as np
 import os
+import sip
 import datetime
-import os
 import platform
 import subprocess
 import time
 from objectDetectImage import identifyImage
-from objectDetectImage import identifyVideo
-import caffe
 
 
 output_directory = "/"
@@ -22,93 +20,86 @@ COLORS = np.random.uniform(0, 255, size=(len(CLASSES),3))
 CONFIDENCE_MIN = 0.2
 
 #SSD MobileNet Setup
-net = cv2.dnn.readNetFromCaffe("MobileNetSSD_deploy.prototxt.txt", "MobileNetSSD_deploy.caffemodel")
+#net = cv2.dnn.readNetFromCaffe("MobileNetSSD_deploy.prototxt.txt", "MobileNetSSD_deploy.caffemodel")
 
 #DetectNet Setup Variables
 model_file = "/home/sagis/Desktop/epoch/deploy.prototxt"
 pretrained_model = "/home/sagis/Desktop/epoch/snapshot_iter_27216.caffemodel"
 
-model_file_steelhead = "/home/sagis/Desktop/epoch/deploy.prototxt"
-pretrained_model_steelhead = "/home/sagis/Desktop/epoch/snapshot_iter_600.caffemodel"
-
 def show_webcam_with_model(mirror=False):
-    identifyWindowView(0)
+    cam = cv2.VideoCapture(0)
+    while True:
+        ret_val, img = cam.read()
+        if mirror:
+            img = cv2.flip(img, 1)
 
+        (h,w) = img.shape[:2]
+        blob = cv2.dnn.blobFromImage(cv2.resize(img, (300,300)), 0.007843, (300, 300), 127.5)
+        net.setInput(blob)
+        detections = net.forward()
 
-def processVideo(self, filepath):
-    identifyWindowView(str(filepath))
+        img_copy = img.copy() #create a copy without bounding boxes for screen capture
 
-def identifyWindowView(filepath):
-    vid = cv2.VideoCapture(filepath)
-    every_nth = 10
-    counter = 0
+        for i in np.arange(0, detections.shape[2]):
+            confidence = detections[0, 0, i, 2]
+            print(confidence)
 
-    caffe.set_mode_cpu()
+            if confidence > CONFIDENCE_MIN:
+                idx = int(detections[0, 0, i, 1])
+                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+                (startX, startY, endX, endY) = box.astype("int")
 
-    net = caffe.Net(model_file,pretrained_model, caffe.TEST )
+                label = "{}: {:.2f}%".format(CLASSES[idx], confidence*100)
+                cv2.rectangle(img, (startX, startY), (endX, endY), COLORS[idx], 2)
+                y = startY - 15 if startY - 15 > 15 else startY + 15
+                cv2.putText(img, label, (startX, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, COLORS[idx], 2)
+        cv2.imshow('Project Pisces Cam', img)
 
+        key = cv2.waitKey(1) & 0xFF
+        # if the `p` key was pressed, screen capture
+        if key == ord('p'):
+            create_screen_capture(img_copy,detections,w,h)
 
-
-    transformer = caffe.io.Transformer({'data': net.blobs['data'].data.shape}) 
-    transformer.set_transpose('data', (2,0,1))
-    transformer.set_raw_scale('data', 255)
-    transformer.set_channel_swap('data', (2,1,0))
-
-    while(True):
-        # Capture video frame-by-frame
-        ret, frame = vid.read()
-        counter += 1
-        
-        if not ret:
-            
-            # Release the Video Device if ret is false
-            vid.release()
-            # Message to be displayed after releasing the device
-            print "Released Video Resource"
-
-        if counter%every_nth == 0:
-             
-             # Resize the captured frame to match the DetectNet model
-            frame = cv2.resize(frame, (1280, 720), 0, 0)
-            
-            # Use the Caffe transformer to preprocess the frame
-            data = transformer.preprocess('data', frame.astype('float16')/255)
-            
-            # Set the preprocessed frame to be the Caffe model's data layer
-            net.blobs['data'].data[...] = data
-            
-            # Measure inference time for the feed-forward operation
-            start = time.time()
-            # The output of DetectNet is an array of bounding box predictions
-            bounding_boxes = net.forward()['bbox-list'][0]
-            end = (time.time() - start)*1000
-            
-            # Convert the image from OpenCV BGR format to matplotlib RGB format for display
-            
-            # Create a copy of the image for drawing bounding boxes
-            overlay = frame.copy()
-            
-            # Loop over the bounding box predictions and draw a rectangle for each bounding box
-            for bbox in bounding_boxes:
-                if  bbox.sum() > 0:
-                     cv2.rectangle(overlay, (bbox[0],bbox[1]), (bbox[2],bbox[3]), (255, 0, 0), -1)
-                    
-            # Overlay the bounding box image on the original image
-            frame = cv2.addWeighted(overlay, 0.5, frame, 0.5, 0, frame)
-            
-            # Display the inference time per frame
-            cv2.putText(frame,"Inference time: %dms per frame" % end,
-                        (10,500), cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),2)
-
-            # Display the frame
-            cv2.imshow('frame',frame)
-            key = cv2.waitKey(1)
+        # if the `q` key was pressed, break from the loop
+        if key == ord('q'):
+            break
     cv2.destroyAllWindows()
 
 
+def processVideo(self, filepath):
+    cap = cv2.VideoCapture(filepath)
+
+    while (cap.isOpened()):
+        ret, img = cap.read()
+        (h, w) = img.shape[:2]
+        blob = cv2.dnn.blobFromImage(cv2.resize(img, (300, 300)), 0.007843, (300, 300), 127.5)
+        net.setInput(blob)
+        detections = net.forward()
+
+        img_copy = img.copy()  # create a copy without bounding boxes for screen capture
+
+        for i in np.arange(0, detections.shape[2]):
+            confidence = detections[0, 0, i, 2]
+
+            if confidence > CONFIDENCE_MIN:
+                idx = int(detections[0, 0, i, 1])
+                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+                (startX, startY, endX, endY) = box.astype("int")
+
+                label = "{}: {:.2f}%".format(CLASSES[idx], confidence * 100)
+                cv2.rectangle(img, (startX, startY), (endX, endY), COLORS[idx], 2)
+                y = startY - 15 if startY - 15 > 15 else startY + 15
+                cv2.putText(img, label, (startX, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, COLORS[idx], 2)
+
+        cv2.imshow('Project Pisces Cam', img)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 # This method uses the SSD model instead of DetectNet
-'''def processImage(self, filepath):
+def processImage(self, filepath):
     img = cv2.imread(filepath)
     (h, w) = img.shape[:2]
     blob = cv2.dnn.blobFromImage(cv2.resize(img, (300, 300)), 0.007843, (300, 300), 127.5)
@@ -133,13 +124,42 @@ def identifyWindowView(filepath):
     cv2.imshow('Project Pisces Cam', img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-'''
+
 # This processImage method uses the DetectNet model instead, referring to another script.
 def processImageDetectNet(self, filepath):
     identifyImage(model_file,pretrained_model,filepath)
 
 def processDroneVideo(self):
-    identifyWindowView(str("http://192.168.254.1:8090/?action=stream"))
+    cam = cv2.VideoCapture("http://192.168.254.1:8090/?action=stream")
+
+    while (cam.isOpened()):
+        ret, img = cam.read()
+        (h, w) = img.shape[:2]
+        blob = cv2.dnn.blobFromImage(cv2.resize(img, (300, 300)), 0.007843, (300, 300), 127.5)
+        net.setInput(blob)
+        detections = net.forward()
+
+        img_copy = img.copy()  # create a copy without bounding boxes for screen capture
+
+        for i in np.arange(0, detections.shape[2]):
+            confidence = detections[0, 0, i, 2]
+
+            if confidence > CONFIDENCE_MIN:
+                idx = int(detections[0, 0, i, 1])
+                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+                (startX, startY, endX, endY) = box.astype("int")
+
+                label = "{}: {:.2f}%".format(CLASSES[idx], confidence * 100)
+                cv2.rectangle(img, (startX, startY), (endX, endY), COLORS[idx], 2)
+                y = startY - 15 if startY - 15 > 15 else startY + 15
+                cv2.putText(img, label, (startX, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, COLORS[idx], 2)
+
+        cv2.imshow('Project Pisces Cam', img)
+        if (cv2.waitKey(1) & 0xFF) == ord('q'):
+            break
+
+    cam.release()
+    cv2.destroyAllWindows()
 
 class Window(QtGui.QWidget):
     def __init__(self):
@@ -175,11 +195,11 @@ class Window(QtGui.QWidget):
         self.setDefaultDirectoryButton.setStyleSheet("background-color: #FFFFFF")
         #Drone Video Button
         self.droneVideoButton = QtGui.QPushButton(Form)
-        self.droneVideoButton.setGeometry(QtCore.QRect(175, 450, 150, 40))
+        self.droneVideoButton.setGeometry(QtCore.QRect(15, 450, 150, 40))
         self.droneVideoButton.setObjectName("droneVideoButton")
         self.droneVideoButton.setStyleSheet("background-color: #FFFFFF")
         self.inputImageButton = QtGui.QPushButton(Form)
-        self.inputImageButton.setGeometry(QtCore.QRect(325,450,150,40))
+        self.inputImageButton.setGeometry(QtCore.QRect(335,450,150,40))
         self.inputImageButton.setObjectName("inputImageButton")
         self.inputImageButton.setStyleSheet("background-color: #FFFFFF")
         self.initButtons(self.runButton, self.inputVideoButton, self.setDefaultDirectoryButton, self.droneVideoButton, self.inputImageButton)
@@ -211,6 +231,7 @@ class Window(QtGui.QWidget):
         self.inputVideoButton.setText(_translate("Form", "Input Video"))
         self.setDefaultDirectoryButton.setText(_translate("Form", "Set Default Dir"))
         self.droneVideoButton.setText(_translate("Form", "Drone Input"))
+	self.inputImageButton.setText(_translate("Form", "Input Image"))
 
     def droneButtonPressed(self):
         processDroneVideo(self)
@@ -221,16 +242,16 @@ class Window(QtGui.QWidget):
     def inputVideoButtonPressed(self):
         options = QtGui.QFileDialog.Options()
         options |= QtGui.QFileDialog.DontUseNativeDialog
-        fileName = QtGui.QFileDialog.getOpenFileName(self, "Select a File", "", "", options=options)
+        fileName, _ = QtGui.QFileDialog.getOpenFileName(self, "Select a File","","", options=options)
         if fileName:  # If a filename is successfully retrieved, add picture to window
             processVideo(self, fileName)
 
     def inputImageButtonPressed(self):
         options = QtGui.QFileDialog.Options()
         options |= QtGui.QFileDialog.DontUseNativeDialog
-        fileName = QtGui.QFileDialog.getOpenFileName(self, "Select a File", "", "", options=options)
+        fileName= QtGui.QFileDialog.getOpenFileName(self, "Select a File", "", "", options=options)
         if fileName:  # If a filename is successfully retrieved, add picture to window
-            processImageDetectNet(self, fileName)
+            processImageDetectNet(self, str(fileName))
 
     def setDefaultDirectoryButtonPressed(self):
         output_directory = QtGui.QFileDialog.getExistingDirectory(self, "Output Directory", "", QtGui.QFileDialog.ShowDirsOnly)
@@ -290,23 +311,3 @@ app = QtGui.QApplication(sys.argv)
 GUI = Window()
 
 sys.exit(app.exec_())
-
-""""(h, w) = img.shape[:2]
-       blob = cv2.dnn.blobFromImage(cv2.resize(img, (300, 300)), 0.007843, (300, 300), 127.5)
-       net.setInput(blob)
-       detections = net.forward()
-
-       img_copy = img.copy()  # create a copy without bounding boxes for screen capture
-
-       for i in np.arange(0, detections.shape[2]):
-           confidence = detections[0, 0, i, 2]
-
-           if confidence > CONFIDENCE_MIN:
-               idx = int(detections[0, 0, i, 1])
-               box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-               (startX, startY, endX, endY) = box.astype("int")
-
-               label = "{}: {:.2f}%".format(CLASSES[idx], confidence * 100)
-               cv2.rectangle(img, (startX, startY), (endX, endY), COLORS[idx], 2)
-               y = startY - 15 if startY - 15 > 15 else startY + 15
-               cv2.putText(img, label, (startX, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, COLORS[idx], 2)"""
