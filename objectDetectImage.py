@@ -4,13 +4,9 @@ import matplotlib.pyplot as plt
 import caffe
 import cv2
 
-model_file = "/home/sagis/Desktop/epoch/deploy.prototxt"
-pretrained_model = "/home/sagis/Desktop/epoch/snapshot_iter_27216.caffemodel"
 
-
-
-def identifyImage(model_file, pretrained_model, image):
-   caffe.set_mode_cpu()
+def identifyImage(model_file, pretrained_model, image, steelhead_boolean):
+   caffe.set_mode_gpu()
 
    net = caffe.Net(model_file,pretrained_model, caffe.TEST )
 
@@ -34,7 +30,11 @@ def identifyImage(model_file, pretrained_model, image):
 
    net.blobs['data'].data[...] = data
    start = time.time()
-   bounding_boxes = net.forward()['bbox-list'][0]
+   print("Now with " + str(model_file))
+   if(steelhead_boolean):
+      bounding_boxes = net.forward()['bbox-list-class0'][0]
+   else:
+      bounding_boxes = net.forward()['bbox-list'][0]
    end = (time.time() - start)*1000
 
    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -48,11 +48,12 @@ def identifyImage(model_file, pretrained_model, image):
    img = cv2.addWeighted(overlay, 0.5, img, 0.5, 0, img)
 
    cv2.putText(img, "Inference time: %dms per frame" % end, (10,500), cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),2)
+   cv2.imshow('Project Pisces',img)
    cv2.waitKey(0)
-cv2.destroyAllWindows()
+   cv2.destroyAllWindows()
 
-def identifyVideo(model_file, pretrained_model, image):
-   caffe.set_mode_cpu()
+def identifyVideo(model_file, pretrained_model, image, steelhead_boolean):
+   caffe.set_mode_gpu()
 
    net = caffe.Net(model_file,pretrained_model, caffe.TEST )
 
@@ -75,7 +76,10 @@ def identifyVideo(model_file, pretrained_model, image):
 
    net.blobs['data'].data[...] = data
    start = time.time()
-   bounding_boxes = net.forward()['bbox-list'][0]
+   if(steelhead_boolean):
+      bounding_boxes = net.forward()['bbox-list-class0'][0]
+   else:
+      bounding_boxes = net.forward()['bbox-list'][0]
    end = (time.time() - start)*1000
 
    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -90,10 +94,10 @@ def identifyVideo(model_file, pretrained_model, image):
 
    cv2.putText(img, "Inference time: %dms per frame" % end, (10,500), cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),2)
    cv2.waitKey(0)
-cv2.destroyAllWindows()
+   cv2.destroyAllWindows()
 
 def detectImage(model_file, pretrained_model, image):
-   caffe.set_mode_cpu()
+   caffe.set_mode_gpu()
 
    net = caffe.Net(model_file,pretrained_model, caffe.TEST )
 

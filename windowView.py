@@ -25,18 +25,26 @@ CONFIDENCE_MIN = 0.2
 #net = cv2.dnn.readNetFromCaffe("MobileNetSSD_deploy.prototxt.txt", "MobileNetSSD_deploy.caffemodel")
 
 #DetectNet Setup Variables
+
 model_file = "Chinook Model/chinook_deploy.prototxt"
+
 pretrained_model = "Chinook Model/snapshot_iter_27216.caffemodel"
 
+
 model_file_steelhead = "Steelhead Model/steelhead_deploy.prototxt"
+
 pretrained_model_steelhead = "Steelhead Model/snapshot_iter_7040.caffemodel"
 
+currently_selected_prototxt= model_file
+currently_selected_model= pretrained_model
+steelhead_boolean = False
+
 def show_webcam_with_model(mirror=False):
-    identifyWindowView(model_file, pretrained_model, 0, False)
+    identifyWindowView(currently_selected_prototxt, currently_selected_model, 0, steelhead_boolean)
 
 
 def processVideo(self, filepath):
-    identifyWindowView(model_file, pretrained_model, str(filepath), False)
+    identifyWindowView(currently_selected_prototxt, currently_selected_model, str(filepath), steelhead_boolean)
 
 def identifyWindowView(prototxt, model, filepath, steelhead_boolean):
     vid = cv2.VideoCapture(filepath)
@@ -111,10 +119,10 @@ def identifyWindowView(prototxt, model, filepath, steelhead_boolean):
     cv2.destroyAllWindows()
 
 def identifySteelheadVideo(self, filepath):
-    identifyWindowView(model_file_steelhead,pretrained_model_steelhead, str(filepath), True)
+    identifyWindowView(currently_selected_prototxt, currently_selected_model, str(filepath), True)
     
 def identifySteelheadImage(self, filepath):
-    identifyImage(model_file_steelhead,pretrained_model_steelhead, str(filepath), True)
+    identifyImage(currently_selected_prototxt, currently_selected_model, str(filepath), True)
 
 # This method uses the SSD model instead of DetectNet
 '''def processImage(self, filepath):
@@ -145,12 +153,30 @@ def identifySteelheadImage(self, filepath):
 '''
 # This processImage method uses the DetectNet model instead, referring to another script.
 def processImageDetectNet(self, filepath):
-    identifyImage(model_file,pretrained_model,str(filepath), False)
+    identifyImage(currently_selected_prototxt, currently_selected_model,str(filepath), steelhead_boolean)
 
 def processDroneVideo(self):
-    identifyWindowView(model_file_steelhead, pretrained_model_steelhead, str("http://192.168.254.1:8090/?action=stream"), True)
+    identifyWindowView(currently_selected_prototxt, currently_selected_model, str("http://192.168.254.1:8090/?action=stream"), True)
+
+def switchModels(self):
+    global steelhead_boolean
+    global currently_selected_model
+    global currently_selected_prototxt
+    global model_file_steelhead
+    global model_file
+    global pretrained_model_steelhead
+    global pretrained_model
+    if(steelhead_boolean):
+        currently_selected_model = model_file
+        currently_selected_prototxt = pretrained_model
+        steelhead_boolean = False
+    else:
+        currently_selected_prototxt =  model_file_steelhead
+        currently_selected_model = pretrained_model_steelhead
+        steelhead_boolean = True
 
 class Window(QtGui.QWidget):
+    
     def __init__(self):
         QtGui.QWidget.__init__(self)
         self.setupUi(self)
@@ -192,15 +218,11 @@ class Window(QtGui.QWidget):
         self.inputImageButton.setObjectName("inputImageButton")
         self.inputImageButton.setStyleSheet("background-color: #FFFFFF")
         # Steelhead Video Button
-        self.inputSteelheadVideoButton = QtGui.QPushButton(Form)
-        self.inputSteelheadVideoButton.setGeometry(QtCore.QRect(15, 450, 150, 40))
-        self.inputSteelheadVideoButton.setObjectName("inputSteelheadVideoButton")
-        self.inputSteelheadVideoButton.setStyleSheet("background-color: #FFFFFF")
-        self.inputSteelheadImageButton = QtGui.QPushButton(Form)
-        self.inputSteelheadImageButton.setGeometry(QtCore.QRect(175, 500, 150, 40))
-        self.inputSteelheadImageButton.setObjectName("inputSteelheadImageButton")
-        self.inputSteelheadImageButton.setStyleSheet("background-color: #FFFFFF")
-        self.initButtons(self.runButton, self.inputVideoButton, self.setDefaultDirectoryButton, self.droneVideoButton, self.inputImageButton, self.inputSteelheadImageButton, self.inputSteelheadVideoButton)
+        self.switchModelButton = QtGui.QPushButton(Form)
+        self.switchModelButton.setGeometry(QtCore.QRect(15, 450, 150, 40))
+        self.switchModelButton.setObjectName("switchModelButton")
+        self.switchModelButton.setStyleSheet("background-color: #FFFFFF")
+        self.initButtons(self.runButton, self.inputVideoButton, self.setDefaultDirectoryButton, self.droneVideoButton, self.inputImageButton,  self.switchModelButton)
         self.imageLabel = QtGui.QLabel(Form)
         self.imageLabel.setGeometry(QtCore.QRect(20, 10, 460, 380))
         self.imageLabel.setObjectName("imageLabel")
@@ -215,14 +237,13 @@ class Window(QtGui.QWidget):
         QtCore.QMetaObject.connectSlotsByName(Form)
         self.show()
 
-    def initButtons(self, runButton, inputVideoButton, setDefaultDirectoryButton, droneVideoButton, inputImageButton, inputSteelheadImageButton, inputSteelheadVideoButton):
+    def initButtons(self, runButton, inputVideoButton, setDefaultDirectoryButton, droneVideoButton, inputImageButton,  switchModelButton):
         runButton.clicked.connect(self.runButtonPressed)
         inputVideoButton.clicked.connect(self.inputVideoButtonPressed)
         setDefaultDirectoryButton.clicked.connect(self.setDefaultDirectoryButtonPressed)
         droneVideoButton.clicked.connect(self.droneButtonPressed)
         inputImageButton.clicked.connect(self.inputImageButtonPressed)
-        inputSteelheadVideoButton.clicked.connect(self.inputSteelheadVideoButtonPressed)
-        inputSteelheadImageButton.clicked.connect(self.inputSteelheadImageButtonPressed)
+        switchModelButton.clicked.connect(self.switchModelButtonPressed)
 
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
@@ -231,11 +252,10 @@ class Window(QtGui.QWidget):
         self.inputVideoButton.setText(_translate("Form", "Input Video"))
         self.setDefaultDirectoryButton.setText(_translate("Form", "Set Default Dir"))
         self.droneVideoButton.setText(_translate("Form", "Drone Input"))
+        self.switchModelButton.setText(_translate("Form", "Chinook"))
         self.inputImageButton.setText(_translate("Form", "Input Image"))
-        self.inputSteelheadVideoButton.setText(_translate("Form", "Input Steelhead Video"))
-        self.inputSteelheadImageButton.setText(_translate("Form", "Input Steelhead Image"))
 
-    def droneButtonPressed(self):
+    def droneButtonPressed(self): 
         processDroneVideo(self)
 
     def runButtonPressed(self):
@@ -257,22 +277,22 @@ class Window(QtGui.QWidget):
         if fileName:  # If a filename is successfully retrieved, add picture to window
             processImageDetectNet(self, fileName)
 
-    def inputSteelheadVideoButtonPressed(self):
-        options = QtGui.QFileDialog.Options()
-        QtGui.QFileDialog.setStyleSheet(self, "background-color: #CCCCCC")
-        options |= QtGui.QFileDialog.DontUseNativeDialog
-        fileName = QtGui.QFileDialog.getOpenFileName(self, "Select a File", "", "", options=options)
-        if fileName:  # If a filename is successfully retrieved, add picture to window
-            identifySteelheadVideo(self, fileName)
+    def switchModelButtonPressed(self):
+        global model_file 
+        global pretrained_model 
+        global model_file_steelhead 
+        global pretrained_model_steelhead
 
-    def inputSteelheadImageButtonPressed(self):
-        options = QtGui.QFileDialog.Options()
-        QtGui.QFileDialog.setStyleSheet(self, "background-color: #CCCCCC")
-        options |= QtGui.QFileDialog.DontUseNativeDialog
-        fileName = QtGui.QFileDialog.getOpenFileName(self, "Select a File", "", "", options=options)
-        if fileName:  # If a filename is successfully retrieved, add picture to window
-            identifySteelheadImage(self, fileName)
-
+        global currently_selected_prototxt
+        global currently_selected_model
+        global steelhead_boolean
+        switchModels(self)
+        _translate = QtCore.QCoreApplication.translate
+        if(steelhead_boolean):
+            self.switchModelButton.setText(_translate("Form", "Steelhead"))
+        else:
+            self.switchModelButton.setText(_translate("Form", "Chinook"))
+    
     def setDefaultDirectoryButtonPressed(self):
         output_directory = QtGui.QFileDialog.getExistingDirectory(self, "Output Directory", "", QtGui.QFileDialog.ShowDirsOnly)
         print(output_directory)
