@@ -32,20 +32,20 @@ model_file_steelhead = "/home/sagis/Desktop/epoch/deploy.prototxt"
 pretrained_model_steelhead = "/home/sagis/Desktop/epoch/snapshot_iter_600.caffemodel"
 
 def show_webcam_with_model(mirror=False):
-    identifyWindowView(0)
+    identifyWindowView(model_file, pretrained_model, 0)
 
 
 def processVideo(self, filepath):
-    identifyWindowView(str(filepath))
+    identifyWindowView(model_file, pretrained_model, str(filepath))
 
-def identifyWindowView(filepath):
+def identifyWindowView(prototxt, model, filepath):
     vid = cv2.VideoCapture(filepath)
     every_nth = 10
     counter = 0
 
     caffe.set_mode_cpu()
 
-    net = caffe.Net(model_file,pretrained_model, caffe.TEST )
+    net = caffe.Net(prototxt, model, caffe.TEST )
 
 
 
@@ -105,7 +105,11 @@ def identifyWindowView(filepath):
             key = cv2.waitKey(1)
     cv2.destroyAllWindows()
 
-
+def identifySteelheadVideo(filepath):
+    identifyWindowView(model_file_steelhead,pretrained_model_steelhead, filepath)
+    
+def identifySteelheadImage(filepath):
+    identifyImage(model_file_steelhead,pretrained_model_steelhead, filepath)
 
 # This method uses the SSD model instead of DetectNet
 '''def processImage(self, filepath):
